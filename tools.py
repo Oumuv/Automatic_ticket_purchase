@@ -40,28 +40,28 @@ def load_cookies():
 
 def check_login_status(login_cookies):
     """ 检测是否登录成功 """
-    personal_title = '我的大麦-个人信息'
+    personal_title = '常用观演人'
+
 
     headers = {
-        'authority': 'passport.damai.cn',
-        'cache-control': 'max-age=0',
-        'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"macOS"',
-        'upgrade-insecure-requests': '1',
-        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.83 Safari/537.36',
-        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-        'sec-fetch-site': 'same-origin',
-        'sec-fetch-mode': 'navigate',
-        'sec-fetch-user': '?1',
-        'sec-fetch-dest': 'document',
-        'referer': 'https://passport.damai.cn/login?ru=https://passport.damai.cn/accountinfo/myinfo',
-        'accept-language': 'zh,en;q=0.9,en-US;q=0.8,zh-CN;q=0.7',
+        "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "accept-language": "zh-CN,zh;q=0.9",
+        "sec-ch-ua": "\"Google Chrome\";v=\"113\", \"Chromium\";v=\"113\", \"Not-A.Brand\";v=\"24\"",
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": "\"macOS\"",
+        "sec-fetch-dest": "document",
+        "sec-fetch-mode": "navigate",
+        "sec-fetch-site": "same-origin",
+        "sec-fetch-user": "?1",
+        "upgrade-insecure-requests": "1",
+        "Referer": "https://m.damai.cn/damai/mine/my/index.html",
+        "Referrer-Policy": "strict-origin-when-cross-origin"
     }
 
-    response = requests.get('https://passport.damai.cn/accountinfo/myinfo',
+    response = requests.get('https://m.damai.cn/damai/mine/audience/index.html',
                             headers=headers,
-                            cookies=login_cookies)
+                            cookies=login_cookies,
+                            verify=False)
     personal_info = BeautifulSoup(response.text, 'html.parser')
     if personal_info.title.text == personal_title:
         return True
@@ -78,9 +78,9 @@ def account_login(login_type: str, login_id=None, login_password=None):
     :param login_type:  选择哪种方式进行登录
     :return:
     """
-    damai_title = '大麦网-全球演出赛事官方购票平台-100%正品、先付先抢、在线选座！'
+    damai_title = '大麦'
 
-    login_url = 'https://passport.damai.cn/login'
+    login_url = 'https://m.damai.cn/damai/minilogin/index.html'
     option = webdriver.ChromeOptions()  # 默认Chrome浏览器
     # 关闭开发者模式, window.navigator.webdriver 控件检测到你是selenium进入，若关闭会导致出现滑块并无法进入。
     option.add_experimental_option('excludeSwitches', ['enable-automation'])
@@ -99,11 +99,14 @@ def account_login(login_type: str, login_id=None, login_password=None):
 
     driver = webdriver.Chrome(chromedriver, options=option)
     driver.set_page_load_timeout(60)
+    driver.set_window_size(300, 800)
     driver.get(login_url)
+
     if login_type == 'account':
         driver.switch_to.frame('alibaba-login-box')  # 切换内置frame，否则会找不到元素位置
-        driver.find_element_by_name('fm-login-id').send_keys(login_id)
-        driver.find_element_by_name('fm-login-password').send_keys(login_password)
+        driver.find_element_by_xpath('//*[@id="login-form"]/div[5]/a[1]').click()  # 切换登录方式
+        driver.find_element_by_xpath('//*[@id="fm-login-id"]').send_keys(login_id)
+        driver.find_element_by_xpath('//*[@id="fm-login-password"]').send_keys(login_password)
         driver.find_element_by_class_name('password-login').send_keys(Keys.ENTER)
     WebDriverWait(driver, 180, 0.5).until(EC.title_contains(damai_title))
 
@@ -128,7 +131,7 @@ def get_api_param():
         return param
 
     js_code_define = requests.get(
-        "https://g.alicdn.com/damai/??/vue-pc/0.0.70/vendor.js,vue-pc/0.0.70/perform/perform.js").text
+        "https://g.alicdn.com/damai/??/vue-pc/0.0.70/vendor.js,vue-pc/0.0.70/perform/perform.js", verify=False).text
     # 获取商品SKU的API参数
     commodity_param = re.search('getSkuData:function.*?\|\|""}}', js_code_define).group()
     commodity_param = re.search('data:{.*?\|\|""}}', commodity_param).group()
@@ -136,11 +139,13 @@ def get_api_param():
         replace('this.vmSkuData.privilegeId||""}}', '""'). \
         replace('itemId:e', 'itemId:""')
     commodity_param = format_param(commodity_param)
+    # print(commodity_param) {'itemId': '', 'apiVersion': '2.0', 'dmChannel': 'pc@damai_pc', 'bizCode': 'ali.china.damai', 'scenario': 'itemsku', 'dataType': '', 'dataId': '', 'privilegeActId': ''}
     # 获取订单购买用户的API参数
     ex_params = re.search(',i=Z}else{.*?;e&&', js_code_define).group()
     ex_params = re.search('{.*}', ex_params).group()
     ex_params = ex_params.replace('{var u=', '')[1:-1]
     ex_params = format_param(ex_params)
+    # print(ex_params) {'damai': '1', 'channel': 'damai_app', 'umpChannel': '10002', 'atomSplit': '1', 'serviceVersion': '1.8.5'}
     return commodity_param, ex_params
 
 

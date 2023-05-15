@@ -110,6 +110,48 @@ class DaMaiTicket:
             print(result.group())
             return False
         return submit_order_info
+    def step2_click_buy_now_h5(self, ex_params, sku_info):
+        """
+        点击立即购买
+        :param ex_params:   点击立即购买按钮所发送请求的必须参数
+        :param sku_info:    购买指定商品信息及数量信息
+        :return:
+        """
+
+        headers = {
+            'authority': 'buy.damai.cn',
+            'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"macOS"',
+            'upgrade-insecure-requests': '1',
+            'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.74 Safari/537.36',
+            'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'sec-fetch-site': 'same-site',
+            'sec-fetch-mode': 'navigate',
+            'sec-fetch-user': '?1',
+            'sec-fetch-dest': 'document',
+            'referer': 'https://detail.damai.cn/',
+            'accept-language': 'zh,en;q=0.9,en-US;q=0.8,zh-CN;q=0.7'
+        }
+        params = {
+            'exParams': json.dumps(ex_params),
+            'buyParam': sku_info,
+            'buyNow': 'true',
+            'spm': 'a2oeg.project.projectinfo.dbuy'
+        }
+
+        response = self.session.get('https://buy.damai.cn/orderConfirm', headers=headers,
+                                    params=params, cookies=self.login_cookies)
+        result = re.search('window.__INIT_DATA__[\s\S]*?};', response.text)
+        self.login_cookies.update(self.session.cookies)
+        try:
+            submit_order_info = json.loads(result.group().replace('window.__INIT_DATA__ = ', '')[:-1])
+            submit_order_info.update({'output': json.loads(submit_order_info.get('output'))})
+        except Exception as e:
+            print('-' * 10, '获取购买必备参数异常，请重新解析response返回的参数', '-' * 10)
+            print(result.group())
+            return False
+        return submit_order_info
 
     def step2_click_confirm_select_seats(self, project_id, perform_id, seat_info, sku_info):
         """ 选座购买，点击确认选座 """
@@ -153,7 +195,7 @@ class DaMaiTicket:
                 submit_order_info = json.loads(result.group().replace('window.__INIT_DATA__ = ', '')[:-1])
                 submit_order_info.update({'output': json.loads(submit_order_info.get('output'))})
             except Exception as e:
-                print('-' * 10, '获取购买必备参数异常，请重新解析response返回的参数', '-' * 10)
+                print('-' * 2, '获取购买必备参数异常，请重新解析response返回的参数', '-' * 2)
                 print(result.group())
                 return False
             return submit_order_info
@@ -260,7 +302,7 @@ class DaMaiTicket:
                 return False
             elif ticket_sku_status == '立即购买':
                 buy_serial_number = '{}_{}_{}'.format(self.item_id, self.buy_nums, sku_id)
-                submit_order_info = self.step2_click_buy_now(ex_params, buy_serial_number)
+                submit_order_info = self.step2_click_buy_now_h5(ex_params, buy_serial_number)
                 break
             elif ticket_sku_status == '选座购买':
                 # 获取选座购买必备的数据信息。
